@@ -1,0 +1,37 @@
+@startuml
+actor User#red
+participant ApiGateway as APIGW
+participant OriginationFrontFaceSvc as originffsvc
+participant OtpSvc as otpsvc
+database    MySQL    as db
+database    Redis    as cache
+queue    Kafka    as kafka
+
+User -> APIGW: login request
+APIGW -> originffsvc : forward request with https termination
+originffsvc -> db : get user info
+alt if user is existing in system
+    originffsvc -> originffsvc: hash + salt plainTextpassword and compare with hashed password in db
+        alt correct passwords 
+            originffsvc -> otpsvc: request otp code 
+        else
+           originffsvc -> APIGW: return incorrect password or id
+        end
+else
+        originffsvc -> APIGW: return incorrect password or id
+end
+APIGW -> User: forward response
+User -> APIGW: verify otp request
+APIGW -> originffsvc : forward request with https termination
+originffsvc -> otpsvc: verify otp
+alt otp valid
+    originffsvc -> cache: cache session token
+    alt success callback
+        originffsvc -> kafka: login event 
+        originffsvc -> APIGW: return session token 
+    else fallback callback
+        originffsvc -> APIGW: return error
+    end
+end
+APIGW -> User: forward response
+@enduml

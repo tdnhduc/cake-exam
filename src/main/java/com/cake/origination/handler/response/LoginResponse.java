@@ -7,6 +7,5 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = true)
 @Getter
 @SuperBuilder
-public class RegisterResponse extends BaseResponse {
-
+public class LoginResponse extends BaseResponse {
 }

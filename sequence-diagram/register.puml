@@ -1,0 +1,35 @@
+@startuml
+actor User#red
+participant ApiGateway as APIGW
+participant OriginationFrontFaceSvc as originffsvc
+participant OtpSvc as otpsvc
+database    MySQL    as db
+database    Redis    as cache
+queue    Kafka    as kafka
+participant OriginationSvc as originsvc
+queue    NotificationQueue    as notifyEvent
+
+
+User -> APIGW : register request
+APIGW -> originffsvc : forward request with https termination
+originffsvc -> MySQL : check user existing in system 
+alt user existing in system
+    originffsvc -> APIGW: user already existing
+    APIGW -> User: forward response
+else
+    originffsvc -> cache : user is in onboarding process
+    alt user is in onboarding process
+        originffsvc -> APIGW: user is creating
+        APIGW -> User: forward response
+    else
+
+        originffsvc --> kafka : publish event
+        kafka --> originsvc: get event
+        originsvc -> cache: lock for onboarding progress
+        originsvc -> MySQL: persist user info
+        originsvc -> notifyEvent: verify new user email
+        originsvc -> cache: unlock
+    end
+end
+
+@enduml

@@ -1,0 +1,29 @@
+@startuml
+queue LoginEventQueue as kafka
+participant PromotionSvc as prmsvc
+database MySQL as db
+database Redis as cache
+queue CaimpaignQueue as kafka1
+queue NotificationQueue as kafka2
+
+kafka <-- prmsvc: pull event from login-events
+prmsvc -> db : check if the msg already processed?
+alt this is the new msg
+    prmsvc -> db: is user already have the voucher?
+    alt user already have the voucher
+        prmsvc -> db: mark as read msg
+        prmsvc -> kafka: ack msg
+    else
+        prmsvc -> kafka1: push event user have the voucher into caimpaign topic (1 caimpaign topic - 1 partition)
+        kafka <-- prmsvc: pull msg from caimpaign topic
+        prmsvc -> cache: check if the caimpaign still running
+        alt the caimpaign is full
+            prmsvc -> kafka1: push to another caimpaign
+        else
+            prmsvc -> cache: increase the counter
+            prmsvc -> kafka2: push email for user
+        end
+    end
+end
+
+@enduml
